@@ -18,7 +18,7 @@ rm -f "${v}" || true
 touch "${v}"
 if [ -x /usr/sbin/virt-what ]
 then
-  platforms=$(echo $( virt-what ) | tr '\n' ' ')
+  platforms=$(echo "$( virt-what )" | tr '\n' ' ')
   echo '# HELP virt_platform reports one series per detected virtualization type. If no type is detected, the type is "none".' >>"${v}"
   echo '# TYPE virt_platform gauge' >>"${v}"
   count=0
@@ -30,12 +30,6 @@ then
     echo "virt_platform{type=\"${platform}\"} 1" >>"${v}"
   done
 
-  # Attempt AWS detection on older (m4) and newer (m5) instance types, taken from https://serverfault.com/a/903599
-  if ([ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == "ec2" ]) ||
-      ([ -r /sys/devices/virtual/dmi/id/product_uuid ] && [ `head -c 3 /sys/devices/virtual/dmi/id/product_uuid` == "EC2" ]); then
-    count=$(( count + 1 ))
-    echo "virt_platform{type=\"aws\"} 1" >>"${v}"
-  fi
   # Attempt GCP detection
   if dmidecode -s bios-vendor | grep Google; then
     count=$(( count + 1 ))
@@ -53,6 +47,13 @@ then
       "$( dmidecode -s system-manufacturer )" "$( dmidecode -s system-product-name )" "$( dmidecode -s system-version )" \
       "$( dmidecode -s baseboard-manufacturer )" "$( dmidecode -s baseboard-product-name )" )"
     echo "${line//\\ / }" >>"${v}"
+  fi
+else
+  # Attempt AWS detection on older (m4) and newer (m5) instance types, taken from https://serverfault.com/a/903599
+  if ([ -f /sys/hypervisor/uuid ] && [ "$(head -c 3 /sys/hypervisor/uuid)" == "ec2" ]) ||
+      ([ -r /sys/devices/virtual/dmi/id/product_uuid ] && [ "$(head -c 3 /sys/devices/virtual/dmi/id/product_uuid)" == "EC2" ]); then
+    count=$(( count + 1 ))
+    echo "virt_platform{type=\"aws\"} 1" >>"${v}"
   fi
 fi
 mv "${v}" virt.prom
